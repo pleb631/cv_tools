@@ -18,4 +18,4 @@ python -m torch.distributed.launch \
     $(dirname "$0")/train.py \
     $CONFIG \
     --launcher pytorch ${@:3}
-#CUDA_VISIBLE_DEVICES=8,9 python -m torch.distributed.launch --nproc_per_node 2  --master_port 12345  --use-env train.py /home/dml/project/mmcv1.7/mmlab/config/shufflentv2fpn.py --launcher pytorch
+#CUDA_VISIBLE_DEVICES=8,9 python -m torch.distributed.launch --nproc_per_node 2  --master_port 12345  --use-env train.py config/shufflentv2fpn.py --launcher pytorch
