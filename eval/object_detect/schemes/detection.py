@@ -10,10 +10,6 @@ from .load_model import OnnxModel
 from uits import *
 
 
-def check_args(args):
-    assert args.save_box | args.save_img | args.val, "没有选择模式"
-
-
 def imread(path) -> np.ndarray:
     stream = open(path, "rb")
     bytes = bytearray(stream.read())
@@ -26,15 +22,11 @@ class OnnxScheme(object):
     def __init__(self, args):
         super(OnnxScheme, self).__init__()
 
-        check_args(args)
-
         self.args = args
         self.model = OnnxModel(args)
-        self.num2cls = args.classes
-        self.cls2num = {args.classes[i]: int(i) for i in args.classes.keys()}
-
-        self.classes = list(args.classes.keys())
-        self.total_results = defaultdict(list)
+        self.classes = args.classes
+        
+        self.total_results = list()
 
         self.tp = defaultdict(lambda: np.zeros(8))
         self.num_p = defaultdict(int)
@@ -53,24 +45,17 @@ class OnnxScheme(object):
         if original_image.shape[2] > 3:
             original_image = original_image[:, :, :3]
         image = original_image.copy()
-        preds = self.model.detect(image, image_path.relative_to(self.data_folder))
+        preds = self.model.detect(image)
 
-        if self.args.save_box:
-            ones = defaultdict(list)
-            for one in preds.tolist():
-                ones[int(one[5])].append(one)
-
-            for key in self.classes:
-                dic0 = creatdict(str(image_path), ones[key])
-                self.total_results[key].append(dic0)
-
+        if self.args.save_json:
+            
+            dic0 = create_json(preds,str(image_path))
+            self.total_results.extend(dic0)
+            
         pred_bbox = list()
         for pred in preds:
             x1, y1, x2, y2 = pred[:4]
-            w = original_image.shape[1] * (x2 - x1)
-            h = original_image.shape[0] * (y2 - y1)
-            if w < self.filter_area or h < self.filter_area * 2:
-                continue
+
             pred_bbox.append(pred[np.newaxis, :])
         if len(pred_bbox) > 0:
             pred_b = np.concatenate(pred_bbox, axis=0)
@@ -84,11 +69,9 @@ class OnnxScheme(object):
 
         gt_b = []
         if self.args.val:
-            gt_b = load_bag_detect_gt(
+            gt_b = load_detect_gt(
                 str(image_path),
-                self.filter_area,
                 *original_image.shape[:2],
-                self.cls2num,
             )
 
             if len(gt_b) > 0:
@@ -149,11 +132,8 @@ class OnnxScheme(object):
             file.write(f"{k} precision\n{precision}\n")
         file.close()
         print("-" * 10)
-        if self.args.save_box:
+        if self.args.save_json:
             os.makedirs(self.args.save_path, exist_ok=True)
-            for key in self.total_results.keys():
-                json_output = os.path.join(
-                    self.args.save_path, self.num2cls[key] + ".json"
-                )  # "backpack","suitcase"
-                json.dump(self.total_results[key], open(json_output, "w"), indent=4)
+            json_output = os.path.join(self.args.save_path,  "prediction.json")
+            json.dump(self.total_results, open(json_output, "w"), indent=4)
         print("done!!")

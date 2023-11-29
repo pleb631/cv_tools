@@ -14,13 +14,12 @@ class OnnxModel(object):
         self.padding = args.padding
         self.mean = args.mean
         self.std = args.std
-        self.classes = list(args.classes.keys())
+        self.classes = args.classes
         self.obj_threshold = args.obj_threshold
         self.nms_threshold = args.nms_threshold
         self.model = onnxruntime.InferenceSession(str(args.model_path), providers=['CUDAExecutionProvider','CPUExecutionProvider'])
-        self.npy_path = args.npy_path
         self.post_process = self.yolov8PostProcess if args.use_yolov8 else self.yolov5PostProcess
-    def detect(self, input,subpath):
+    def detect(self, input):
 
             
         image = input[:, :, ::-1].copy()
@@ -37,14 +36,6 @@ class OnnxModel(object):
         image = np.pad(image, ((0, interval_y), (0, interval_x), (0, 0)), "constant", constant_values=114)
         new_shape = image.shape[:2][::-1]
         
-        if len(self.npy_path)>0:
-            nppath = os.path.join(self.npy_path,subpath)
-            nppath = os.path.splitext(nppath)[0]+'.npy'
-        
-            boxes = np.load(nppath).transpose()
-            
-            boxes = self.post_process(boxes, new_shape, self.obj_threshold, self.nms_threshold)
-            return boxes
 
         image = cv2.resize(image, dsize=self.img_size)
         image = image / 255
@@ -61,6 +52,7 @@ class OnnxModel(object):
         return boxes
 
     def yolov5PostProcess(self, boxes, new_shape, obj_threshold=0.5, nms_threshold=0.3):
+        boxes = boxes.T
         boxes = boxes[boxes[:, 4] > obj_threshold]
         bboxes = np.zeros((boxes.shape[0], 6))
         if boxes.shape[0] > 0:
@@ -151,9 +143,9 @@ class OnnxModel(object):
 
         
         all_boxes1= copy.deepcopy(all_boxes)
-        all_boxes1[:,0] = all_boxes[:,0]/self.img_size[0]* new_shape[0] / self.img_w
-        all_boxes1[:,1] = all_boxes[:,1]/self.img_size[1]* new_shape[1] / self.img_h
-        all_boxes1[:,2] = all_boxes[:,2]/self.img_size[0]* new_shape[0] / self.img_w
-        all_boxes1[:,3] = all_boxes[:,3]/self.img_size[1]* new_shape[1] / self.img_h
+        all_boxes1[:,0] = all_boxes[:,0]/self.img_size[0]* new_shape[0]
+        all_boxes1[:,1] = all_boxes[:,1]/self.img_size[1]* new_shape[1]
+        all_boxes1[:,2] = all_boxes[:,2]/self.img_size[0]* new_shape[0]
+        all_boxes1[:,3] = all_boxes[:,3]/self.img_size[1]* new_shape[1]
 
         return np.array(all_boxes1)
