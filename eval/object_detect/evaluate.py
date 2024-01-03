@@ -19,21 +19,20 @@ def args():
     parser.add_argument(
         "--data_path",
         type=Path,
-        default=r"D:\test",
+        default=r"C:\Users\Administrator\Desktop\val",
     )
     parser.add_argument(
         "--model_path",
         type=Path,
-        default=r"C:\Users\Administrator\Desktop\best.onnx",
+        default=r"E:\project\best.onnx",
     )
-    parser.add_argument("--scheme", type=str, default="onnx")
     parser.add_argument(
         "--image_size", nargs="+", type=int, default=(640, 640), help="(w,h)"
     )
     parser.add_argument("--mean", nargs="+", type=int, default=[0, 0, 0])
     parser.add_argument("--std", nargs="+", type=int, default=[1, 1, 1])
     parser.add_argument("--classes", nargs="+", type=dict, default=clss)
-    parser.add_argument("--obj_threshold", type=float, default=0.01)
+    parser.add_argument("--obj_threshold", type=float, default=0.5)
     parser.add_argument("--nms_threshold", type=float, default=0.3)
     parser.add_argument("--padding", type=bool, default=True)
     parser.add_argument(
@@ -41,13 +40,13 @@ def args():
         type=Path,
         default="./temp",
     )
-    parser.add_argument("--filter_area", type=int, default=0)
-    parser.add_argument("--use_yolov8", type=bool, default=True)
 
+    parser.add_argument("--use_yolov8", type=bool, default=True)
+    parser.add_argument("--aug_test", type=bool, default=True)
     # mode
     parser.add_argument("--save_json", type=bool, default=True)
     parser.add_argument("--save_img", type=bool, default=False)
-    parser.add_argument("--val", type=bool, default=False)
+    parser.add_argument("--val", type=bool, default=True)
     parser.add_argument("--only_save_badcase", type=bool, default=False)
 
     return parser.parse_args()

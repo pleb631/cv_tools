@@ -36,7 +36,6 @@ class OnnxScheme(object):
 
         self.data_folder = args.data_path
         self.save_folder = args.save_path
-        self.filter_area = args.filter_area
 
     def run(self, image_path):
         original_image = imread(image_path)
