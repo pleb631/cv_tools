@@ -58,7 +58,8 @@ def load_detect_gt(
         anno_path = image_path.replace("images", "labels")
 
     anno_path = os.path.splitext(anno_path)[0] + ".txt"
-    assert os.path.exists(anno_path), anno_path
+    if not os.path.exists(anno_path):
+        return []
 
     txt_file = open(anno_path, "r", encoding="UTF-8")
     anno = [line.replace("\n", "") for line in txt_file]
