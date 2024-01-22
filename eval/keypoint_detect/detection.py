@@ -34,16 +34,7 @@ class OnnxScheme(object):
         image = original_image.copy()
         h, w = image.shape[:2]
 
-        if self.args.use_npy:
-            npy_root = self.args.npy_root
-            npy_path = Path(npy_root) / Path(image_path).relative_to(
-                self.data_folder
-            ).with_suffix(".npy")
-            kpts = np.load(npy_path).transpose()
-            kpts = kpts.reshape(-1)[: kpts.size // 2 * 2].reshape(-1, 2)
-            pred = np.clip(kpts, 0, 1)
-        else:
-            pred = self.model.detect(image)
+        pred = self.model.detect(image)
         pred = pred.squeeze()
         if self.args.validated_dataset:
             gt, q = load_kpts_gt(image_path)

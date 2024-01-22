@@ -5,6 +5,7 @@
 ```bash
 train/
 |----- pose 精简的2d关键点训练代码
+|----- cosal-pl 协同分割训练代码
 eval/
 |----- keypoint_detect 2d关键点模型评估、预测代码
 |----- object_detect 目标检测评估、预测代码
