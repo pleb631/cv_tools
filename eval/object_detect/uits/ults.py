@@ -17,11 +17,15 @@ def xyxy2xywh(x):
     return y
 
 
-def create_json(predn, path):
+def create_coco_json(predn, path,_format="coco"):
     # Save one JSON result {"image_id": 42, "category_id": 18, "bbox": [258.15, 41.29, 348.26, 243.78], "score": 0.236}
-    path = Path(path)
+    
     jdict = []
-    image_id = int(path.stem) if path.stem.isnumeric() else path.stem
+    if _format=="yolov5":
+        path = Path(path)
+        image_id = int(path.stem) if path.stem.isnumeric() else path.stem
+    elif _format=="coco":
+        image_id = path
     box = xyxy2xywh(predn[:, :4])  # xywh
     box[:, :2] -= box[:, 2:] / 2  # xy center to top-left corner
     for p, b in zip(predn.tolist(), box.tolist()):
@@ -54,7 +58,8 @@ def load_detect_gt(
         anno_path = image_path.replace("images", "labels")
 
     anno_path = os.path.splitext(anno_path)[0] + ".txt"
-    assert os.path.exists(anno_path), anno_path
+    if not os.path.exists(anno_path):
+        return []
 
     txt_file = open(anno_path, "r", encoding="UTF-8")
     anno = [line.replace("\n", "") for line in txt_file]

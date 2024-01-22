@@ -1,6 +1,6 @@
 from collections import defaultdict
 import tqdm
-import mmcv
+import mmengine
 import os
 import shutil
 
@@ -86,7 +86,7 @@ class runner(object):
         """
         hook_cfg = hook_cfg.copy()
         priority = hook_cfg.pop('priority', 'NORMAL')
-        hook = mmcv.build_from_cfg(hook_cfg, HOOKS)
+        hook = mmengine.build_from_cfg(hook_cfg, HOOKS)
         self.register_hook(hook, priority=priority)
             
     def call_hook(self, fn_name: str) -> None:

@@ -48,7 +48,7 @@ class OnnxScheme(object):
 
         if self.args.save_json:
             
-            dic0 = create_json(preds,str(image_path))
+            dic0 = create_coco_json(preds,os.path.relpath(image_path,self.data_folder),self.args.save_json)
             self.total_results.extend(dic0)
             
         pred_bbox = list()
