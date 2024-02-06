@@ -40,15 +40,14 @@ def coco_evaluate(gt_path, dt_path, yolov5_flag):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument("--gt", type=str, help="Assign the groud true path.", default=r'/root/dataset/val/annotations/train.json')
-    parser.add_argument("--dt", type=str, help="Assign the detection result path.", default='/root/temp/prediction.json')
+    parser.add_argument("--gt", type=str, help="Assign the groud true path.", default=r'D:\project\datasets\coco128\annotations\gt.json')
+    parser.add_argument("--dt", type=str, help="Assign the detection result path.", default=r'D:\project\cv_tools\eval\object_detect\temp\prediction.json')
     parser.add_argument("--yolov5",action='store_true',help="fix yolov5 output bug", default=False)
 
     args = parser.parse_args()
     gt_path = args.gt
     dt_path = args.dt
-    if args.yolov5:
-        coco_evaluate(gt_path, dt_path, True)
-    else:
-        coco_evaluate(gt_path, dt_path, False)
+
+    coco_evaluate(gt_path, dt_path, args.yolov5)
+
     

@@ -3,8 +3,19 @@ import cv2
 import onnxruntime
 import numpy as np
 import torchvision
+import math
 
 
+def scale_img(img, ratio=1.0, same_shape=False, gs=32):  # img(16,3,256,416)
+    # Scales img(bs,3,y,x) by ratio constrained to gs-multiple
+    if ratio == 1.0:
+        return img
+    h, w = img.shape[:2]
+    s = (int(w * ratio),int(h * ratio))  # new size
+    img = cv2.resize(img, s,)  # resize
+    if not same_shape:  # pad/crop img
+        h, w = (math.ceil(x * ratio / gs) * gs for x in (h, w))
+    return np.pad(img, [(0, h - s[0]),(0, w - s[1]),(0,0) ], constant_values=0.447*255)  # value = imagenet mean
 
 
 def clip_boxes(boxes, shape):
@@ -99,15 +110,8 @@ class OnnxModel(object):
         self.model = onnxruntime.InferenceSession(str(args.model_path), providers=['CUDAExecutionProvider','CPUExecutionProvider'])
         self.post_process = self.yolov8PostProcess if args.use_yolov8 else self.yolov5PostProcess
         
-    def single_forward(self,image):
+    def _forward(self,image):
         
-        self.img_h, self.img_w = image.shape[:2]
-        
-        image = letterbox(image, self.img_size, stride=self.stride,auto=False,scaleFill=False)[0]
-        # cv2.imshow("im",image)
-        # cv2.waitKey(0)
-        # cv2.destroyAllWindows()
-
         image = image / 255
         image = np.array((image - self.mean) / self.std, dtype=np.float32)
         image = image.transpose(2, 0, 1)[np.newaxis, :, :, :]
@@ -116,23 +120,67 @@ class OnnxModel(object):
         ort_inputs = {self.model.get_inputs()[0].name: image}
         ort_outs = self.model.run(None, ort_inputs)
         boxes = ort_outs[0].squeeze()
+        if self.args.use_yolov8:
+            boxes = boxes.T
         
         return boxes   
          
     def detect(self, image):
         image = image[:, :, ::-1].copy()
-        h,w,c=image.shape
+        self.img_h, self.img_w = image.shape[:2]
+        image = letterbox(image, self.img_size, stride=self.stride,auto=False,scaleFill=False)[0]
         if not self.args.aug_test:
-            boxes = self.single_forward(image)
-            boxes = self.post_process(boxes)
-            if len(boxes)>0:
-                boxes[:, :4] = scale_boxes(self.img_size, boxes[:, :4], image.shape[:2]).round()
+            boxes = self._forward(image)
+        else:
+            boxes = self._forward_augment(image)
+        boxes = self.post_process(boxes)
+        if len(boxes)>0:
+            boxes[:, :4] = scale_boxes(self.img_size, boxes[:, :4], [self.img_h, self.img_w]).round()
             # for box in boxes:
             #     cv2.rectangle(image,[int(box[0]),int(box[1])],[int(box[2]),int(box[3])],[255,0,0],3)
             # cv2.imshow("im",image)
             # cv2.waitKey(0)
             # cv2.destroyAllWindows()
-            return boxes
+        return boxes
+    def _forward_augment(self, x):
+        img_size = x.shape[:2]  # height, width
+        s = [1, 0.83, 0.67]  # scales
+        f = [None, 1, None]  # flips (2-ud, 3-lr)
+        y = []  # outputs
+        for si, fi in zip(s, f):
+            xi = scale_img(np.flip(x,fi) if fi else x, si, True,gs=32)
+            yi = self._forward(xi)  # forward
+            # cv2.imwrite(f'img_{si}.jpg', 255 * xi[0].cpu().numpy().transpose((1, 2, 0))[:, :, ::-1])  # save
+            yi = self._descale_pred(yi, fi, si, img_size)
+            y.append(yi)
+        y = self._clip_augmented(y)  # clip augmented tails
+        return np.concatenate(y, 0)  # augmented inference, train
+
+    def _descale_pred(self, p, flips, scale, img_size):
+        # de-scale predictions following augmented inference (inverse operation)
+        x, y, wh = (
+                p[..., 0:1] / scale,
+                p[..., 1:2] / scale,
+                p[..., 2:4] / scale,
+            )  # de-scale
+        if flips == 0:
+                y = img_size[0] - y  # de-flip ud
+        elif flips == 1:
+                x = img_size[1] - x  # de-flip lr
+        p = np.concatenate((x, y, wh, p[..., 4:]), -1)
+        return p
+
+    def _clip_augmented(self, y):
+        # Clip YOLOv5 augmented inference tails
+        nl = 3  # number of detection layers (P3-P5)
+        g = sum(4**x for x in range(nl))  # grid points
+        e = 1  # exclude layer count
+        i = (y[0].shape[0] // g) * sum(4**x for x in range(e))  # indices
+        y[0] = y[0][:-i, :]  # large
+        i = (y[-1].shape[0] // g) * sum(4 ** (nl - 1 - x) for x in range(e))  # indices
+        y[-1] = y[-1][i:,:]  # small
+        return y
+
 
     def yolov5PostProcess(self, boxes, conf_thres=0.5, iou_thres=0.3):
         max_wh = 7680  # (pixels) maximum box width and height
@@ -144,7 +192,7 @@ class OnnxModel(object):
         xc = boxes[:,4] > conf_thres
         boxes = boxes[xc,:]
         if len(boxes)==0:
-            return []
+            return np.empty((0,6))
         
         boxes[:, 5:] *= boxes[:, 4:5]
 
@@ -154,7 +202,7 @@ class OnnxModel(object):
         x = np.concatenate((box, conf, j), 1)[conf.reshape(-1) >conf_thres]
         
         if len(boxes)==0:
-            return []
+            return np.empty((0,6))
         # Check shape
         
         x = x[x[:, 4].argsort()[::-1][:max_nms]]  # sort by confidence and remove excess boxes
@@ -180,8 +228,8 @@ class OnnxModel(object):
         max_det = 300
         agnostic = False
         
-        xc = boxes[4:,:].max(0) > conf_thres
-        boxes = boxes[:,xc].T
+        xc = boxes[:,4:].max(1) > conf_thres
+        boxes = boxes[xc,]
 
         box, clss = boxes[:,:4],boxes[:,4:]
         

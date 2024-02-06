@@ -1,8 +1,3 @@
-# Ultralytics YOLO 🚀, AGPL-3.0 license
-"""
-Model validation metrics
-"""
-
 from pathlib import Path
 
 import matplotlib.pyplot as plt

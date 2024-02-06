@@ -46,14 +46,13 @@ class OnnxScheme(object):
         image = original_image.copy()
         preds = self.model.detect(image)
 
-        if self.args.save_json:
+        if len(preds) and self.args.save_json:
             
             dic0 = create_coco_json(preds,os.path.relpath(image_path,self.data_folder),self.args.save_json)
             self.total_results.extend(dic0)
             
         pred_bbox = list()
         for pred in preds:
-            x1, y1, x2, y2 = pred[:4]
 
             pred_bbox.append(pred[np.newaxis, :])
         if len(pred_bbox) > 0:
@@ -122,13 +121,14 @@ class OnnxScheme(object):
         print("computing metrics ......")
         for k, v in self.tp.items():
             recall, precision = dict(), dict()
-            for i, thre in enumerate(range(50, 90, 5)):
+            for i, thre in enumerate([50,75]):
                 recall[thre] = round(v[i] / (self.num_g[k] + self.bais), 4)
                 precision[thre] = round(v[i] / (self.num_p[k] + self.bais), 4)
             print(f"{k} recall\n{recall}")
             print(f"{k} precision\n{precision}")
             file.write(f"{k} recall\n{recall}\n")
             file.write(f"{k} precision\n{precision}\n")
+            break
         file.close()
         print("-" * 10)
         if self.args.save_json:
