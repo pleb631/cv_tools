@@ -98,7 +98,7 @@ def xywh2xyxy(x):
 class OnnxModel(object):
     def __init__(self, args):
         super(OnnxModel, self).__init__()
-        self.img_size = tuple(args.image_size)
+        self.img_size = tuple(args.image_size)[::-1]
         self.padding = args.padding
         self.mean = args.mean
         self.std = args.std
@@ -125,8 +125,8 @@ class OnnxModel(object):
         
         return boxes   
          
-    def detect(self, image):
-        image = image[:, :, ::-1].copy()
+    def detect(self, image_ori):
+        image = image_ori[:, :, ::-1].copy()
         self.img_h, self.img_w = image.shape[:2]
         image = letterbox(image, self.img_size, stride=self.stride,auto=False,scaleFill=False)[0]
         if not self.args.aug_test:
@@ -137,7 +137,7 @@ class OnnxModel(object):
         if len(boxes)>0:
             boxes[:, :4] = scale_boxes(self.img_size, boxes[:, :4], [self.img_h, self.img_w]).round()
             # for box in boxes:
-            #     cv2.rectangle(image,[int(box[0]),int(box[1])],[int(box[2]),int(box[3])],[255,0,0],3)
+            #     cv2.rectangle(image_ori,[int(box[0]),int(box[1])],[int(box[2]),int(box[3])],[255,0,0],3)
             # cv2.imshow("im",image)
             # cv2.waitKey(0)
             # cv2.destroyAllWindows()

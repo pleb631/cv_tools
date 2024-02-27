@@ -36,9 +36,7 @@ def args():
     return args
 
 
-num2cls = {0: "license"}
-num2cls = {0: "backpack", 1: "suitcase"}
-num2cls = {0: "persons", 1: "cars"}
+num2cls = {0: "face"}
 cls2num = {num2cls[key]: key for key in num2cls.keys()}
 
 
