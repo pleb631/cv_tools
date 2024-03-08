@@ -92,7 +92,7 @@ def compute_metric(pred_boxes, gt_boxes):
         pred_cls_boxes = pred_cls_boxes[np.argsort(pred_cls_boxes[:, 4])[::-1]]
         for i, iou_thre in enumerate(range(50, 90, 5)):
             gt_matched_flag = [False] * len(gt_cls_boxes)
-            for pred_box in pred_boxes:
+            for pred_box in pred_cls_boxes:
                 overlaps = np.array([iou(pred_box, gt_box) for gt_box in gt_cls_boxes])
 
                 max_overlap = np.max(overlaps)
