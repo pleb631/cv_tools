@@ -28,7 +28,7 @@ class OnnxScheme(object):
         
         self.total_results = list()
 
-        self.tp = defaultdict(lambda: np.zeros(8))
+        self.tp = defaultdict(lambda: np.zeros(2))
         self.num_p = defaultdict(int)
         self.num_g = defaultdict(int)
 
@@ -36,6 +36,8 @@ class OnnxScheme(object):
 
         self.data_folder = args.data_path
         self.save_folder = args.save_path
+        
+        self.stats = []
 
     def run(self, image_path):
         original_image = imread(image_path)
@@ -66,20 +68,20 @@ class OnnxScheme(object):
             pred_b = np.empty((0, 6))
 
         gt_b = []
-        if self.args.val:
+        if self.args.val or self.args.save_img or self.args.val1:
             gt_b = load_detect_gt(
                 str(image_path),
                 *original_image.shape[:2],
             )
-
+        if self.args.val:
             if len(gt_b) > 0:
                 idx = [
-                    i for i in range(len(gt_b)) if gt_b[i, 5] in self.classes
+                    i for i in range(len(gt_b)) if gt_b[i, 0] in self.classes
                 ]  # 取指定分类
                 gt_b = gt_b[idx]
                 self.num_g["all"] += gt_b.shape[0]
                 for i in self.classes:
-                    self.num_g[i] += gt_b[gt_b[:, 5] == i].shape[0]
+                    self.num_g[i] += gt_b[gt_b[:, 0] == i].shape[0]
 
             self.num_p["all"] += pred_b.shape[0]
             for i in self.classes:
@@ -91,6 +93,17 @@ class OnnxScheme(object):
                 self.tp["all"] += tp["all"]
                 for i in self.classes:
                     self.tp[i] += tp[i]
+        if self.args.val1:
+            correct_bboxes = np.zeros((len(pred_b), 10))
+            stat = (correct_bboxes, np.empty(0), np.empty(0), np.empty(0))
+            if len(pred_b)==0:
+                if len(gt_b):
+                    stat = (correct_bboxes, np.empty(0), np.empty(0), gt_b[:, 0])
+            elif len(gt_b):
+                correct_bboxes, _ = process_batch(pred_b, gt_b)
+                stat = (correct_bboxes, preds[:, 4], preds[:, 5], gt_b[:, 0])
+                
+            self.stats.append(stat)
 
         if self.args.save_img:
             save_img = visualize_pred_gt_box(image, pred_b, gt_b)
@@ -131,6 +144,18 @@ class OnnxScheme(object):
             break
         file.close()
         print("-" * 10)
+        
+        metrics = DetMetrics(names=self.classes, plot=False)
+        stats = [np.concatenate(x, 0) for x in zip(*self.stats)]
+        if len(stats) and stats[0].any():
+            metrics.process(*stats)
+        result = metrics.results_dict
+        from prettytable import PrettyTable
+        tb = PrettyTable()
+        tb.field_names = ["precision","recall","mAP50","mAP50-95","fitness","th"]
+        tb.add_row([round(i,4) for i in list(result.values())+[float(metrics.th)]])
+        print(tb)
+        
         if self.args.save_json:
             os.makedirs(self.args.save_path, exist_ok=True)
             json_output = os.path.join(self.args.save_path,  "prediction.json")

@@ -107,7 +107,7 @@ class OnnxModel(object):
         self.obj_threshold = args.obj_threshold
         self.nms_threshold = args.nms_threshold
         self.stride = 32
-        self.model = onnxruntime.InferenceSession(str(args.model_path), providers=['CUDAExecutionProvider','CPUExecutionProvider'])
+        self.model = onnxruntime.InferenceSession(str(args.model_path), providers=onnxruntime.get_available_providers())
         self.post_process = self.yolov8PostProcess if args.use_yolov8 else self.yolov5PostProcess
         
     def _forward(self,image):

@@ -1,5 +1,5 @@
 import argparse
-from mmengine import Config, DictAction
+from mmcv import Config, DictAction
 from apis import OnnxModel, BaseDataset, runner
 
 #os.environ["CUDA_VISIBLE_DEVICES"] ="9"

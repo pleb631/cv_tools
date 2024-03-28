@@ -8,7 +8,7 @@ from schemes import *
 import os
 
 
-formats = [".jpg", ".png", ".jpeg"]
+formats = [".jpg", ".png", ".jpeg",".bmp"]
 os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
 
@@ -17,7 +17,7 @@ def args():
     parser.add_argument(
         "--data_path",
         type=Path,
-        default=r"D:\project\datasets\coco128",
+        default=r"D:\project\datasets",
     )
     parser.add_argument(
         "--model_path",
@@ -30,8 +30,8 @@ def args():
     parser.add_argument("--mean", nargs="+", type=int, default=[0, 0, 0])
     parser.add_argument("--std", nargs="+", type=int, default=[1, 1, 1])
     parser.add_argument("--classes", nargs="+", type=int, default=list(range(80)))
-    parser.add_argument("--obj_threshold", type=float, default=0.01)
-    parser.add_argument("--nms_threshold", type=float, default=0.3)
+    parser.add_argument("--obj_threshold", type=float, default=0.25)
+    parser.add_argument("--nms_threshold", type=float, default=0.45)
     parser.add_argument("--padding", type=bool, default=True)
     parser.add_argument(
         "--save_path",
@@ -40,11 +40,12 @@ def args():
     )
 
     parser.add_argument("--use_yolov8", type=bool, default=True)
-    parser.add_argument("--aug_test", type=bool, default=True)
+    parser.add_argument("--aug_test", type=bool, default=False)
     # mode
     parser.add_argument("--save_json", type=str, choices=["coco","yolov5",None],default='coco')
     parser.add_argument("--save_img", type=bool, default=False)
     parser.add_argument("--val", type=bool, default=True)
+    parser.add_argument("--val1", type=bool, default=True)
     parser.add_argument("--only_save_badcase", type=bool, default=False)
 
     return parser.parse_args()

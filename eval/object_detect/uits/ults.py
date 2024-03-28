@@ -72,7 +72,7 @@ def load_detect_gt(
         line = list(map(float, line.split()))
         x1, y1 = line[1] - line[3] / 2, line[2] - line[4] / 2
         x2, y2 = x1 + line[3], y1 + line[4]
-        gt_b.append([x1 * img_w, y1 * img_h, x2 * img_w, y2 * img_h, 1, int(line[0])])
+        gt_b.append([int(line[0]), x1 * img_w, y1 * img_h, x2 * img_w, y2 * img_h])
 
     gt_b = np.stack(gt_b, axis=0)
     return gt_b
@@ -80,20 +80,20 @@ def load_detect_gt(
 
 def compute_metric(pred_boxes, gt_boxes):
     classes = list(map(int, set(pred_boxes[:, 5].tolist())))
-    tp = defaultdict(lambda: np.zeros(8))
+    tp = defaultdict(lambda: np.zeros(2))
 
     for clss in classes:
         pred_cls_boxes = pred_boxes[pred_boxes[:, 5] == clss]
-        gt_cls_boxes = gt_boxes[gt_boxes[:, 5] == clss]
+        gt_cls_boxes = gt_boxes[gt_boxes[:, 0] == clss]
 
         if not (len(pred_cls_boxes) and len(gt_cls_boxes)):
             continue
 
         pred_cls_boxes = pred_cls_boxes[np.argsort(pred_cls_boxes[:, 4])[::-1]]
-        for i, iou_thre in enumerate(range(50, 90, 5)):
+        for i, iou_thre in enumerate([50,75]):
             gt_matched_flag = [False] * len(gt_cls_boxes)
             for pred_box in pred_cls_boxes:
-                overlaps = np.array([iou(pred_box, gt_box) for gt_box in gt_cls_boxes])
+                overlaps = np.array([iou(pred_box[:4], gt_box[1:]) for gt_box in gt_cls_boxes])
 
                 max_overlap = np.max(overlaps)
                 max_overlap_index = int(np.argmax(overlaps))
@@ -148,15 +148,15 @@ def visualize_pred_gt_box(input_img, pred_b, gt_b):
     for b in gt_b:
         cv2.rectangle(
             input_img,
-            (int(b[0]), int(b[1])),
-            (int(b[2]), int(b[3])),
+            (int(b[1]), int(b[2])),
+            (int(b[3]), int(b[4])),
             (255, 0, 0),
             2,
         )
         cv2.putText(
             input_img,
-            str(int(b[5])),
-            (int(b[2]) - 10, int(b[3]) - 10),
+            str(int(b[0])),
+            (int(b[3]) - 10, int(b[4]) - 10),
             cv2.FONT_HERSHEY_SIMPLEX,
             0.5,
             (255, 0, 0),
