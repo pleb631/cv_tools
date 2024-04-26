@@ -323,12 +323,12 @@ def keypoints_from_heatmaps(heatmaps,
 class KPDModel(object):
     def __init__(self, args):
         super(KPDModel, self).__init__()
-        self.img_size = tuple(args.image_size)
         self.padding = args.padding
         self.mean = args.mean
         self.std = args.std
         self.args = args
         self.model = onnxruntime.InferenceSession(str(args.model_path), providers=['CPUExecutionProvider'])
+        self.img_size = self.model.get_inputs()[0].shape[3:1:-1]
 
     def detect(self, input):
 

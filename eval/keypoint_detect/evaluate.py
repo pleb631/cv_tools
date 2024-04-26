@@ -21,9 +21,6 @@ def args():
         "--model_path",
         type=Path,
     )
-    parser.add_argument(
-        "--image_size", nargs="+", type=int, default=(112, 112), help="(w,h)"
-    )
     parser.add_argument("--mean", nargs="+", type=float, default=[0.5, 0.5, 0.5])
     parser.add_argument("--std", nargs="+", type=float, default=[0.5, 0.5, 0.5])
     parser.add_argument("--padding", type=bool, default=False)

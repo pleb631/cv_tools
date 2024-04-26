@@ -4,8 +4,6 @@ import cv2
 import glob
 import os
 import numpy as np
-import argparse
-from pathlib import Path
 
 ix, iy = -1, -1
 
@@ -18,8 +16,10 @@ def compute_color_for_labels(label):
         [255, 255, 0],
         [255, 0, 255],
         [0, 255, 255],
+        [128,255,0],
+        [255,128,0],
     ]
-    return color[label]
+    return color[label%len(color)]
 
 
 def save_txt(txt_path, info, mode="w"):
@@ -95,6 +95,7 @@ class CLabeled:
         self._may_make_dir()
         self.mouse_position = (0, 0)
         self.labeled()
+        self.show=True
 
     # 重置
     def _reset(self):
@@ -103,6 +104,7 @@ class CLabeled:
         self.label_path = None
         self.boxes = list()
         self.classes = list()
+        self.show=True
 
     # 统计所有图片个数
     def _compute_total_image_number(self):
@@ -130,7 +132,7 @@ class CLabeled:
             y = self.height
         return x, y
 
-    def change_box_category(self, num=0):
+    def change_box_category(self, num=1):
 
         if len(self.boxes):
             if len(self.boxes) > 1:
@@ -155,12 +157,12 @@ class CLabeled:
             else:
                 sort_index = -1
 
-            if 0 < self.classes[sort_index] + num < self.cls:
+            if 0 <= self.classes[sort_index] + num < self.cls:
                 self.cur_label = int(self.classes[sort_index] + num)
             elif self.classes[sort_index] + num >= self.cls:
                 self.cur_label = 0
             else:
-                self.cur_label = self.cls-1
+                self.cur_label = self.cls - 1
 
             self.classes[sort_index] = self.cur_label
 
@@ -204,29 +206,21 @@ class CLabeled:
             cv2.rectangle(self.current_image, (ix, iy), (x, y), color, 2)
 
         elif event == cv2.EVENT_LBUTTONUP:  # 鼠标左键松开
-            color = compute_color_for_labels(self.cur_label)
-            if abs(x - ix) > 10 and abs(y - iy) > 10:
-                cv2.rectangle(self.current_image, (ix, iy), (x, y), color, 2)
-                cv2.putText(
-                    self.current_image,
-                    str(self.cls),
-                    (ix + 5, iy + 20),
-                    cv2.FONT_HERSHEY_SIMPLEX,
-                    0.5,
-                    (0, 255, 0),
-                    1,
-                )
-                cv2.putText(
-                    self.current_image,
-                    "simple",
-                    (ix + 15, iy + 20),
-                    cv2.FONT_HERSHEY_SIMPLEX,
-                    0.5,
-                    color,
-                    1,
-                )
-                box = [ix / self.width, iy / self.height, x / self.width, y / self.height]
-                box = [min(box[0], box[2]), min(box[1], box[3]), max(box[0], box[2]), max(box[1], box[3])]
+            if abs(x - ix) > 3 and abs(y - iy) > 3:
+
+
+                box = [
+                    ix / self.width,
+                    iy / self.height,
+                    x / self.width,
+                    y / self.height,
+                ]
+                box = [
+                    max(min(box[0], box[2]),0),
+                    max(min(box[1], box[3]),0),
+                    min(max(box[0], box[2]),1),
+                    min(max(box[1], box[3]),1)
+                ]
                 self.boxes.append(box)
                 self.classes.append(self.cur_label)
 
@@ -256,11 +250,16 @@ class CLabeled:
                     sort_index = -1
                 del self.boxes[sort_index]
                 del self.classes[sort_index]
+        elif event == cv2.EVENT_MBUTTONDOWN:
+            self.show = not self.show
 
-        self._draw_box_on_image(self.current_image)
+        if self.show:
+            self._draw_box_on_image(self.current_image,)
+        else:
+            cv2.imshow(self.windows_name, self.current_image)
 
     # 将标注框显示到图像上
-    def _draw_box_on_image(self,image):
+    def _draw_box_on_image(self, image):
         image, boxes, classes = self.current_image, self.boxes, self.classes
         for box, cls in zip(boxes, classes):
             x1, y1 = (int(image.shape[1] * box[0]), int(image.shape[0] * box[1]))
@@ -305,7 +304,6 @@ class CLabeled:
         self.boxes = boxes
         self.classes = classes
 
-
     # 将标注框信息保存到文本
     def write_label_file(self, label_file_path):
         ann_boxes = []
@@ -313,7 +311,7 @@ class CLabeled:
             box = list(map(str, self.box_fix(box)))
             box.insert(0, str(int(cls)))
             ann_boxes.append(" ".join(box))
-        print(ann_boxes)
+        # print(ann_boxes)
         save_txt(label_file_path, ann_boxes)
 
     # 记录当前已标注位置，写到文本
@@ -332,7 +330,7 @@ class CLabeled:
 
     # 标注程序运行部分
     def labeled(self):
-        
+
         self.images_list = sorted(
             glob.glob(f"{self.image_folder}/**/*.jpg", recursive=True)
             + glob.glob(f"{self.image_folder}/**/*.png", recursive=True),
@@ -342,48 +340,66 @@ class CLabeled:
         print("需要标注的图片总数为: ", self.total_image_number)
         if os.path.exists(self.checkpoint_path):
             self.read_checkpoint(self.checkpoint_path)
-        
+
         labeled_index, labeled_num, labeled_person = self.current_label_index, 0, 0
         init = True
         while True:
-            if self.current_label_index!= labeled_index or init:
+            if self.current_label_index != labeled_index or init:
                 if not init:
                     self.write_label_file(self.label_path)
-                    
+
                     labeled_index = self.current_label_index
                     labeled_num += 1
                     labeled_person += len(self.boxes)
-                    print(f"已标注图片数: {labeled_num}; 图片总数：{self.total_image_number}; 已标注数: {labeled_person}")
-                    
-                    
+                    print(
+                        f"已标注图片数: {labeled_num}; 图片总数：{self.total_image_number}; 已标注数: {labeled_person}\n"
+                    )
+
                 init = False
-                self.current_label_index = min(self.current_label_index, self.total_image_number - 1)
-                print(f"图像ID: {self.current_label_index}\n图像地址: {self.images_list[self.current_label_index]}")
+                self.current_label_index = min(
+                    self.current_label_index, self.total_image_number - 1
+                )
+
                 self.write_checkpoint(self.checkpoint_path)
                 self._reset()
-                self.image = cv2.imdecode(np.fromfile(self.images_list[self.current_label_index], dtype=np.uint8),1,)
-                
-                self.image = cv2.resize(self.image, (640, 640))
-                
+                self.image = cv2.imdecode(
+                    np.fromfile(
+                        self.images_list[self.current_label_index], dtype=np.uint8
+                    ),
+                    1,
+                )
+
+                #self.image = cv2.resize(self.image, (640, 640))
+
                 self.current_image = self.image.copy()
-                
-                filepath, filename = os.path.split(self.images_list[self.current_label_index])
-                self.label_path = os.path.join(
-                    filepath.replace(f"{os.sep}images{os.sep}", f"{os.sep}labels{os.sep}"),
-                    filename.replace(Path(filename).suffix, ".txt"),
-                 )
+
+                image_path = self.images_list[self.current_label_index]
+                sa, sb = f"{os.sep}images{os.sep}", f"labels"
+                if sa in image_path:
+                    self.label_path = os.path.join(
+                        image_path.rsplit(sa, 1)[0],
+                        sb,
+                        image_path.rsplit(sa, 1)[1].rsplit(".", 1)[0] + ".txt",
+                    )
+                else:
+                    self.label_path = image_path.rsplit(".", 1)[0] + ".txt"
+
                 if os.path.exists(self.label_path):
                     self.read_label_file(self.label_path)
                 else:
                     self.annotation = []
+                
+                print(
+                    f"图像ID: {self.current_label_index}\n图像地址: {self.images_list[self.current_label_index]}\nlabel地址: {self.label_path}\n"
+                )
                 self.width = self.image.shape[1]
                 self.height = self.image.shape[0]
-                
+
                 if self.scale:
                     cv2.namedWindow(self.windows_name, cv2.WINDOW_NORMAL)
-                    
+
                 self._draw_box_on_image(self.current_image)
-        
+
             cv2.setMouseCallback(self.windows_name, self._draw_roi)
             key = cv2.waitKey(self.decay_time)
 
@@ -400,20 +416,25 @@ class CLabeled:
             else:
                 pass
 
-
             if key == 32:
                 self.auto_play_flag = not self.auto_play_flag
                 self.decay_time = 10 if self.auto_play_flag else 0
             elif key == ord("a") or key == ord("A"):  # 后退一张
                 self._backward()
             elif key == ord("d") or key == ord("D"):  # 后退一张
-                self.current_label_index = min(self.current_label_index+1, self.total_image_number - 1)
+                self.current_label_index = min(
+                    self.current_label_index + 1, self.total_image_number - 1
+                )
             elif key == ord("l") or key == ord("L"):  # 删除当前图
                 os.remove(self.images_list[self.current_label_index])
-                os.remove(self.label_path)
+                if os.path.exists(self.label_path):
+                    os.remove(self.label_path)
                 del self.images_list[self.current_label_index]
                 self._compute_total_image_number()
-                self.current_label_index = min(self.current_label_index, self.total_image_number - 1)
+                self.current_label_index = min(
+                    self.current_label_index, self.total_image_number - 1
+                )
+                init = True
                 continue
 
             elif key == 27:  # 退出
@@ -424,18 +445,32 @@ class CLabeled:
 
 
 def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "--image_folder",
-        type=str,
-        help="the path of reviewed images",
-        default=r"D:\vechile_dataset\test",
+    import easydict
+
+    # parser = argparse.ArgumentParser()
+    # parser.add_argument(
+    #     "--image_folder",
+    #     type=str,
+    #     help="the path of reviewed images",
+    # )
+    # parser.add_argument("--scale", default=True)
+    # parser.add_argument(
+    #     "--category", type=int, default=4, help="the category of processed objects"
+    # )
+    # args = parser.parse_args()
+    import sys
+
+    image_folder = sys.argv[1]
+    #image_folder = r'D:\project\imgalz\resources\coco1282-7\images\train2017'
+    scale = True
+    category = 4
+    args = easydict.EasyDict(
+        {
+            "image_folder": image_folder,
+            "scale": scale,
+            "category": category,
+        }
     )
-    parser.add_argument("--scale", default=True)
-    parser.add_argument(
-        "--category", type=int, default=3, help="the category of processed objects"
-    )
-    args = parser.parse_args()
     CLabeled(args)
 
 

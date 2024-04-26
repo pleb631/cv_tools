@@ -24,9 +24,7 @@ def args():
         type=Path,
         default=r"D:\project\imgalz\weights\yolov8s.onnx",
     )
-    parser.add_argument(
-        "--image_size", nargs="+", type=int, default=(640, 640), help="(w,h)"
-    )
+
     parser.add_argument("--mean", nargs="+", type=int, default=[0, 0, 0])
     parser.add_argument("--std", nargs="+", type=int, default=[1, 1, 1])
     parser.add_argument("--classes", nargs="+", type=int, default=list(range(80)))

@@ -108,6 +108,7 @@ class OnnxModel(object):
         self.nms_threshold = args.nms_threshold
         self.stride = 32
         self.model = onnxruntime.InferenceSession(str(args.model_path), providers=onnxruntime.get_available_providers())
+        self.img_size = self.model.get_inputs()[0].shape[2:]
         self.post_process = self.yolov8PostProcess if args.use_yolov8 else self.yolov5PostProcess
         
     def _forward(self,image):
