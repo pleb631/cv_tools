@@ -98,12 +98,11 @@ def xywh2xyxy(x):
 class OnnxModel(object):
     def __init__(self, args):
         super(OnnxModel, self).__init__()
-        self.img_size = tuple(args.image_size)[::-1]
+        
         self.padding = args.padding
         self.mean = args.mean
         self.std = args.std
-        self.args = args
-        self.classes = args.classes
+        self.aug_test = self.args.aug_test
         self.obj_threshold = args.obj_threshold
         self.nms_threshold = args.nms_threshold
         self.stride = 32
@@ -130,19 +129,16 @@ class OnnxModel(object):
         image = image_ori[:, :, ::-1].copy()
         self.img_h, self.img_w = image.shape[:2]
         image = letterbox(image, self.img_size, stride=self.stride,auto=False,scaleFill=False)[0]
-        if not self.args.aug_test:
+        if not self.aug_test:
             boxes = self._forward(image)
         else:
             boxes = self._forward_augment(image)
         boxes = self.post_process(boxes)
         if len(boxes)>0:
             boxes[:, :4] = scale_boxes(self.img_size, boxes[:, :4], [self.img_h, self.img_w]).round()
-            # for box in boxes:
-            #     cv2.rectangle(image_ori,[int(box[0]),int(box[1])],[int(box[2]),int(box[3])],[255,0,0],3)
-            # cv2.imshow("im",image)
-            # cv2.waitKey(0)
-            # cv2.destroyAllWindows()
+
         return boxes
+    
     def _forward_augment(self, x):
         img_size = x.shape[:2]  # height, width
         s = [1, 0.83, 0.67]  # scales
