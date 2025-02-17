@@ -15,4 +15,5 @@ label_tools/
 |----- simple/
 |---------- class_label 基于tk的二分类标注工具
 |---------- detect_label 基于opencv-python的二分类目标检测标注工具
+|---------- label_lp 基于tk的车牌识别标注工具
 ```
